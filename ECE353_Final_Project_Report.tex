@@ -18,9 +18,16 @@
 \usepackage{xfp}
 \usepackage{dutchcal}
 \usepackage{float}
+\usepackage{hyperref}
+\hypersetup{
+	colorlinks=true,
+	linkcolor=black,
+	filecolor=magenta,      
+	urlcolor=SlateGray4,
+	}
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
 	T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
-\graphicspath{ {./html/} }
+\graphicspath{ {./} }
 \makeatletter
 \newcommand*{\overrightharpoonup}{\mathpalette{\overarrow@\rightharpoonupfill@}}
 \newcommand*{\rightharpoonupfill@}{\arrowfill@\relbar\relbar\rightharpoonup}
@@ -85,7 +92,7 @@
 				\item \( \descnode \): DN
 				\item \( M \): Mean anomaly of elliptical orbit
 				\item \( E \): Elliptical anomaly of elliptical orbit
-				\item \( n \): Mean motion of elliptical orbit
+				\item \( n_0 \): Mean motion of elliptical orbit
 				\item \( R \): Radius of celestial body
 				\item \( r \): Radius of orbit with respect to central orbiting body
 			\end{itemize}
@@ -372,47 +379,275 @@
 
 	\section{3D Development in Unity}
 
+		This project is broken up into three major sections for ease of compartmentalization and organization: camera control, TLE translation, and orbit visualization. The camera control section is important for providing an intuitive and friendly user experience to best aid the tool in its main goals. The TLE translation is important for providing the base functionality for input management of the tool. Finally, the orbit visualization is important as that is the main goal of this project. The project is broken up into this order because it was thought of as the most efficient way to slowly integrate myself into the Unity ecosystem and learn how to use Unity before getting into the much more difficult aspects of creating an orbit in 3D. The camera control section is first to learn how to translate and rotate objects, in this case, the camera and player, in a 3-dimensional space using Unity's standards, functions, and constraints. Next, the TLE translation section is to learn how to enable the user to enter text inputs and how to parse and handle strings within Unity. Finally, the orbit visualization section combines everything learned in the two previous sections and renders an orbiting satellite, along with the satellite variables and the orbit path, in a 3D environment that the player can explore. In order to assist the development and derivation of the equations of motion for the satellite's orbit, the online graphing calculator Desmos is used to test out the equations.
+
 		\subsection{Player and Camera Control}
-			The camera is controlled by
+			The camera is controlled by the classical \texttt{WASD} keyboard keys and the mouse, which have become a de facto standard for all PC games. However, due to this project essentially being a ``space game'', the camera movement should fit the theme as well. Thus, a ``smooth'' camera was the desired product; instead of the jerky, instant movement that FPS games are known for, the camera should smoothly track the mouse and keyboard movements, with a gradual slow-down instead of an instant stop. This effect is achieved through the custom C\# script \texttt{cameraMovement.cs}.
+			
+			For the camera rotation, the raw mouse \texttt{x} and \texttt{y} positions are taken as an input and parsed into a linear interpolation function, \texttt{Mathf.Lerp()}, along with a time delta so that the \texttt{x} and \texttt{y} values move towards the actual raw mouse positions with a set amount of lag. This also has the additional effect of slowing the rate-of-change of the coordinates down as they approach the true raw values of the mouse. The \texttt{x} coordinate is then clamped between \( -90\degree \) and \( +90\degree \) so that the user cannot look up or down further than the vertical, which helps significantly in not disorienting the user or causing motion sickness. Finally, these coordinates are interpreted as Euler angles as a 3-tuple, using the datatype \texttt{Vector3}, and the camera rotation is transformed based on these angles.
+
+			For the camera position translation, the keyboard keys are internally mapped to various axes internally by Unity. This results in the following axes and their respective keys for a positive and negative input to the axis, respectively:
+			\begin{itemize}
+				\item \begin{verbatim}Axis      :   +   |    -   \end{verbatim}
+				\item \begin{verbatim}Horizontal:   D   |    A   \end{verbatim}
+				\item \begin{verbatim}Vertical  :   W   |    S   \end{verbatim}
+				\item \begin{verbatim}Jump      : Space | L Shift\end{verbatim}
+			\end{itemize}
+			From this, the ``strength'' of each axis is parsed into a \texttt{Vector3} position translation vector. This vector is then interpreted as a force applied to the camera in order to move it. Since the movement is treated as a force, this allows for the movement to be affected, and subsequently slowed down by an opposing drag force, creating a motion that feels like the camera is sliding around on a smooth surface, which also invokes the feelings of zero-gravity and outer space.
 
 		\subsection{Parsing TLEs}
-			TLEs are 
-			The data is extracted by
+			The user inputs TLEs by pasting a correctly-formatted string of text into an input box. Once the input textbox is no longer selected, or the user has pressed the \texttt{Enter} key, the function for parsing in TLEs, \texttt{readStringInput()}, inside of the script \texttt{readTLE.cs}, is called and begins its calculations. From this, everything in the TLE textbox is loaded into the local variable \texttt{TLE}. Since TLEs have a very strict formatting constraint, substrings for each orbital element can be extracted by simply calling the string method \texttt{<String>.Substring()}. In order to make the index math simpler, the second line of the TLE is further extracted and placed into the variable \texttt{line2}. All relevant sections are then extracted into their respective variables as follows:
+			\begin{itemize}
+				\item \( i \): \texttt{i = line2.Substring(8, 8);}
+				\item \( \Omega \): \texttt{Omega = line2.Substring(17, 8);}
+				\item \( e \): \texttt{e = line2.Substring(26, 7);}
+				\item \( \omega \): \texttt{omega = line2.Substring(34, 8);}
+				\item \( n_0 \): \texttt{n\_0 = line2.Substring(52, 11);}
+			\end{itemize}
+			For almost all of these variables, the only calculations required are converting the value from degrees to radians. However, in order to calculate the semi-major axis, the following calculation must be performed on the mean motion:
+			\begin{equation}
+				a=\sqrt[3]{\frac{\mu_{\oplus}}{n_0^2}}
+				\label{eqA}
+			\end{equation}
+			Equation \eqref{eqA} is derived from the following Keplerian relationship, or more specifically, Kepler's third law:
+			\begin{equation}
+				a^3=\frac{\mu_{\oplus}}{n_0^2}
+				\label{eqB}
+			\end{equation}
+			Thus, all of the relevant orbital elements can be retrieved from this script by calling their respective methods from the textbox object.
 
 		\subsection{Initial Desmos Development}
-			Desmos' 3D graphing calculator was used to create the initial coordinate axis rotations.
+			Given Desmos' very user-friendly UX, easily editable graphical expressions, and LaTeX support for equation and expression formatting, it was used as an initial base platform to develop all of the equations required to display the orbit of the satellite in Unity. More specifically, Desmos' 3D graphing calculator was used to create the coordinate axis rotations. The end result of this development can be viewed at this link to the final iteration of the calculator: \url{https://www.desmos.com/3d/8e16126c8f}.
+
+			Starting off, the actual orbit itself is simply an ellipse, so that was used as an initial point for development. The equation for graphing an ellipse is as follows:
 			\begin{equation}
-				a+b=\gamma\label{eq}
+				\frac{x^2}{a^2}+\frac{y^2}{b^2}=1
+				\label{eqa}
 			\end{equation}
-			Equation \eqref{eq} is
+			Equation \eqref{eqa} creates an ellipse with a semi-major axis of \( a \) and a semi-minor axis of \( b \). However, since Unity uses vector coordinates to transform and render objects, converting \eqref{eqa} into a parametric representation would make it much easier to integrate into Unity. Since an ellipse is essentially an elongated circle, the same expressions for the coordinates of a circle can be used, but with a scalar modification for each axis. Thus, parameterizing \eqref{eqa}, the following is derived:
+			\begin{equation}
+				\left(x,y\right)=\left(a\cos{\left(E\right)},b\cos{\left(E\right)}\right),\,E\in\left[0,2\pi\right)
+				\label{eqb}
+			\end{equation}
+			In \eqref{eqb}, \( E \) is the eccentric anomaly of the ellipse, which can be thought of as \( \theta \) for polar coordinates. The eccentric anomaly is important because it is used to calculate the motion of orbiting bodies. Furthermore, since orbiting objects actually orbit around the barycenter of the 2-body system instead of around the center of the orbital ellipse, the ellipse had to be shifted so that one of the foci of the ellipse was located at the origin of the graph. In order to do this, the distance from the center of the ellipse to one of its foci must be calculated. Due to the properties of an ellipse, it is known that the distance from one focus to one of the ends of the semi-minor axis is equivalent to the length of the semi-major axis, as demonstrated in Fig.~\ref{figH}.
+			\begin{figure}[hbtp]
+				\begin{center}
+					\begin{tikzpicture}[scale=1]
+						\pgfmathsetmacro{\o}{0}
+						\draw (0,\o) ellipse (2 and 1);
+						\draw (0,\o) -- (1.73,\o);
+						\draw (0,0) -- (0,1);
+						\draw [fill=black] (0,1) circle (0.05);
+						\draw [fill=black] (1.73,0) circle (0.05);
+						\draw (0,1) -- (1.73,0);
+						\node at (-0.2,0.4) [anchor=center] {\( b \)};
+						\node at (0.8,-0.2) [anchor=center] {\( c \)};
+						\node at (1,0.6) [anchor=center] {\( a \)};
+					\end{tikzpicture}
+				\end{center}
+				\caption{Distance from center to focus for an ellipse.}
+				\label{figH}
+			\end{figure}
+			From this, using the Pythagorean theorem, the following equation is derived:
+			\begin{equation}
+				c=\sqrt{a^2-b^2}
+				\label{eqc}
+			\end{equation}
+			Applying this offset to the parametric ellipse, the following is derived:
+			\begin{equation}
+				\left(x,y\right)=\left(a\cos{\left(E\right)}-c,b\sin{\left(E\right)}\right)
+				\label{eqd}
+			\end{equation}
+			Equation \eqref{eqd} shifts the ellipse to the left, in the negative-\( x \) direction, so that the periapsis of the orbit is at \( E=\qty{0}{\radian} \). Finally, since TLEs do not contain an expression for the length of the semi-minor axis, \( b \) must be derived from \( a \) and \( e \) as follows:
+			\begin{equation}
+				e^2=1-\frac{b^2}{a^2}
+			\end{equation}
+			\begin{equation}
+				\Rightarrow e^2 a^2=a^2-b^2
+			\end{equation}
+			\begin{equation}
+				\Rightarrow b=\sqrt{a^2-e^2 a^2}
+			\end{equation}
+			Then, using \eqref{eqc}, the following is derived:
+			\begin{equation}
+				c=ea
+			\end{equation}
+			\begin{equation}
+				\therefore \left(x,y\right)=\left(a\cos{\left(E\right)}-ea,\sqrt{a^2-e^2 a^2}\sin{\left(E\right)}\right)
+			\end{equation}
+			From this, various 3D rotations are performed in on the ellipse around the origin in order to achieve the final orbit ellipse.
+
+			Out of the classical orbital elements, \( i \), \( \Omega \), and \( \omega \) are the rotational elements: \( i \) rotates the orbit around the line of nodes; \( \Omega \) rotates the orbit around the barycenter in the celestial equatorial plane; and \( \omega \) rotates the orbit around the barycenter in the orbital plane. Thus, the simplest order of rotations would be to first rotate the ellipse in the orbital plane, so that it is a simple 2-dimensional rotation, then rotate the entire orbital plane around the line of nodes, which would be colinear with the \( \vhat{I} \) axis at this point, and then finally rotate the line of nodes and the orbital plane around the origin, which would essentially be another 2-dimensional rotation, keeping all of the \( \vhat{K} \) components static.
+			\begin{figure}[hbtp]
+				\begin{center}
+					\tdplotsetmaincoords{0}{0}
+					\begin{tikzpicture}[tdplot_main_coords, scale=2]
+						\draw [->] (0,0) -- (1,0) node [anchor=west] {\( x \)};
+						\draw [->] (0,0) -- (0,1) node [anchor=south] {\( y \)};
+						\tdplotsetrotatedcoords{30}{0}{0}
+						\draw [tdplot_rotated_coords, ->] (0,0) -- (1,0) node [anchor=south west] {\( P \)};
+						\tdplotsetrotatedcoords{60}{0}{0}
+						\draw [tdplot_rotated_coords, ->] (0,0) -- (1,0) node [anchor=south west] {\( P^\prime \)};
+						\tdplotdrawarc[color=red, ->]{(0,0,0)}{0.75}{0}{30}{anchor=west}{\( \theta \)}
+						\tdplotdrawarc[color=Purple2, ->]{(0,0,0)}{0.65}{30}{60}{anchor=south west}{\( \phi \)}
+					\end{tikzpicture}
+				\end{center}
+				\caption{2D rotation.}
+				\label{figI}
+			\end{figure}
+			From Fig.~\ref{figI} and the following equations, it is demonstrated that, given an initial point of a graph \( P \), and a desired rotation \( \phi \), a desired final point \( P^\prime \) can be achieved:
+			\begin{equation}
+				P^\prime=
+				\begin{cases}
+					x^\prime=r\cos{\left(\theta\right)}\cos{\left(\phi\right)}-r\sin{\left(\theta\right)}\sin{\left(\phi\right)}\\
+					y^\prime=r\cos{\left(\theta\right)}\sin{\left(\phi\right)}+r\sin{\left(\theta\right)}\cos{\left(\phi\right)}
+				\end{cases}
+			\end{equation}
+			\begin{equation}
+				P=
+				\begin{cases}
+					x=r\cos{\left(\theta\right)}\\
+					y=r\sin{\left(\theta\right)}
+				\end{cases}
+			\end{equation}
+			\begin{equation}
+				\therefore P^\prime=
+				\begin{cases}
+					x^\prime=x\cos{\left(\phi\right)}-y\sin{\left(\phi\right)}\\
+					y^\prime=x\sin{\left(\phi\right)}+y\cos{\left(\phi\right)}
+				\end{cases}
+				\label{eqaaa}
+			\end{equation}
+			Applying \eqref{eqaaa} to the base orbital ellipse as a rotation of \( \omega \), a rotation matrix \( \bm{\left[R_{\omega}\right]} \) can be derived:
+			\begin{equation}
+				\bm{\left[R_{\omega}\right]}=
+				\begin{bmatrix}
+					\cos{\left(\omega\right)} & -\sin{\left(\omega\right)}\\
+					\sin{\left(\omega\right)} & \cos{\left(\omega\right)}
+				\end{bmatrix}
+				\label{eq1}
+			\end{equation}
+			Equation \eqref{eq1} rotates the orbital ellipse, and by extension the periapsis, around the barycenter, so that the periapsis is \( \omega \) away from \( \ascnode \) in the direction of the orbit, thus achieving the desired effect of the orbital element \( \omega \), as demonstrated in Fig.~\ref{figJ} and Fig.~\ref{figK}.
+
+			\begin{figure}[hbtp]
+				\begin{center}
+					\includegraphics[width=0.8\columnwidth]{1.png}
+				\end{center}
+				\caption{Orbital ellipse before \( \bm{\left[R_{\omega}\right]} \).}
+				\label{figJ}
+			\end{figure}
+
+			\begin{figure}[hbtp]
+				\begin{center}
+					\includegraphics[width=0.8\columnwidth]{2.png}
+				\end{center}
+				\caption{Orbital ellipse after \( \bm{\left[R_{\omega}\right]} \).}
+				\label{figK}
+			\end{figure}
+
+			Next, the entire orbital plane must be rotated around the line of nodes. In its current state, the line of nodes is colinear with the \( x \)-axis, meaning rotating the graph's \( yz \)-plane around the origin would achieve the desired effect. Thus, using the output 2-dimensional vector of the last matrix as the input for the next matrix, a rotation matrix \( \bm{\left[R_i\right]} \) can be derived. Given that the \( z \)-component of the input vector is zero, since the base orbital plane is only in the \( xy \)-plane, the third column of \( \bm{\left[R_i\right]} \) can be omitted:
+			\begin{equation}
+				\bm{\left[R_i\right]}=
+				\begin{bmatrix}
+					1 & 0\\
+					0 & \cos{\left(i\right)}\\
+					0 & \sin{\left(i\right)}
+				\end{bmatrix}
+				\label{eq2}
+			\end{equation}
+			Equation \eqref{eq2} rotates the orbital plane around the line of nodes, so that the orbital plane is \( i \) away from the celestial equatorial plane, achieving the desired result, as demonstrated in Fig.~\ref{figL} and Fig.~\ref{figM}.
+
+			\begin{figure}[hbtp]
+				\begin{center}
+					\includegraphics[width=0.8\columnwidth]{3.png}
+				\end{center}
+				\caption{Orbital ellipse before \( \bm{\left[R_i\right]} \).}
+				\label{figL}
+			\end{figure}
+
+			\begin{figure}[hbtp]
+				\begin{center}
+					\includegraphics[width=0.8\columnwidth]{4.png}
+				\end{center}
+				\caption{Orbital ellipse after \( \bm{\left[R_i\right]} \).}
+				\label{figM}
+			\end{figure}
+
+			Finally, the result of \eqref{eq2} must be rotated around the \( z \)-axis. Since this is simply another rotation of the \( xy \)-plane without affecting the \( z \)-component of any coordinate, a rotation matrix similar to that of \eqref{eq1}, \( \bm{\left[R_{\Omega}\right]} \), can be employed:
+			\begin{equation}
+				\bm{\left[R_{\Omega}\right]}=
+				\begin{bmatrix}
+					\cos{\left(\Omega\right)} & -\sin{\left(\Omega\right)} & 0\\
+					\sin{\left(\Omega\right)} & \cos{\left(\Omega\right)} & 0\\
+					0 & 0 & 1
+				\end{bmatrix}
+				\label{eq3}
+			\end{equation}
+			Equation \eqref{eq3} rotates the entire orbit around the celestial pole, so that the line of nodes is \( \Omega \) away from \( \aries \), achieving the desired result, as demonstrated in Fig.~\ref{figN} and Fig.~\ref{figO}.
+
+			\begin{figure}[hbtp]
+				\begin{center}
+					\includegraphics[width=0.8\columnwidth]{5.png}
+				\end{center}
+				\caption{Orbital ellipse before \( \bm{\left[R_{\Omega}\right]} \).}
+				\label{figN}
+			\end{figure}
+
+			\begin{figure}[hbtp]
+				\begin{center}
+					\includegraphics[width=0.8\columnwidth]{6.png}
+				\end{center}
+				\caption{Orbital ellipse after \( \bm{\left[R_{\Omega}\right]} \).}
+				\label{figO}
+			\end{figure}
+
+			Putting all of these rotation matrices together, the following equation describes the entire translation from a simple ellipse drawn from \( a \) and \( e \) to a 3-dimensional orbit of a satellite.
+			\begin{equation}
+				\left\langle
+					\begin{matrix}
+						I\\
+						J\\
+						K
+					\end{matrix}
+				\right\rangle
+				=\bm{\left[R_{\Omega}\right]}\bm{\left[R_i\right]}\bm{\left[R_{\omega}\right]}
+				\left\langle
+					\begin{matrix}
+						a\cos{\left(E\right)}-c\\
+						b\sin{\left(E\right)}
+					\end{matrix}
+				\right\rangle
+				\label{eq4}
+			\end{equation}
 
 		\subsection{Implementation in Unity}
-			Using the results from the Desmos experiments, 
+			The resulting matrices and equations from Desmos are replicated using the \texttt{Mathf} class in the main satellite script, \texttt{orbit.cs}, within Unity. The \texttt{cameraMovement.cs} script is attached to the main camera object; the \texttt{readTLE.cs} script is attached to the textbox object; and the \texttt{orbit.cs} script is attached to the satellite object. This then concludes the main effort of the project. Aside from the main deliverable, additional features were also added, such as a rotating Earth, a start button, an exit button, and a textual display for all six classical orbital elements.
+
+			The rotation of the Earth is set based on the framerate of the program, so that it also matches the rotation of the satellite. In testing, using the International Space Station's TLE, through one full rotation of the Earth, the satellite object completed approximately \( 15.5 \) orbits, which is consistent with the actual International Space Station, confirming the periodic accuracy of the program.
 
 	\section{Conclusion}
 
 		\subsection{Project Deliverables}
-			The final deliverable for the project is
+			The final deliverable for the project is a Windows software tool, built in Unity, that takes in a TLE as an input and creates a 3D model of the orbit of the satellite that the TLE corresponds to, in an interactive 3D environment. A brief guide on how to use the tool is also included as a deliverable at the end of this document.
 
 		\subsection{Challenges and Difficulties}
-			Many challenges and difficulties were faced throughout the development of this project.
+			Many challenges and difficulties were faced throughout the development of this project. Chiefly among those were learning Unity for the first time and understanding all of the relationships and quirks in the Unity object management system, deconstructing all six of the classical orbital elements into something comprehensible, and developing a coherent set of rotation matrices to represent those orbital elements.
+
+			Additionally, the major time constraint of needing to finish such a large project in less than half a semester, while also spending time on other courses, proved to be incredibly challenging.
 
 		\subsection{Thoughts on Project and Future Development}
-			For additional development in the future, I would like to add in all of the visual elements that I did not have time to add into this initial release of the project.
+			For additional development in the future, I would like to add in all of the visual elements that I did not have time to add into this initial release of the project, such as all of the visualizations of the orbital elements as seen in the Desmos figures, as well as a transparent cone to demonstrate where geographically a satellite would be able to communicate with.
 
 	\section*{Usage Information and Notes}
-		A TLE is entered in this box
+		The program is started by running the \texttt{Satellite Visualizer.exe}.
 
-		The camera is moved via
+		A TLE can be entered or pasted into the textbox labeled \texttt{ENTER TLE:}.
 
-		Clicking the green button labeled \texttt{START}
+		The camera is moved via \texttt{WASD, Space, L Shift} and the mouse.
 
-		Clicking the red button labeled \texttt{STOP PROGRAM}
+		Clicking the green button labeled \texttt{START} after having input a valid TLE will begin all rotations and orbits.
 
-		The source code for my final project can be found in the GitHub repository for this project: \texttt{LINK}
+		Clicking the red button labeled \texttt{CLOSE PROGRAM} will close out of the program.
 
-	\begin{thebibliography}{00}
-		\bibitem{b1} G. Eason, B. Noble, and I. N. Sneddon, ``On certain integrals of Lipschitz-Hankel type involving products of Bessel functions,'' Phil. Trans. Roy. Soc. London, vol. A247, pp. 529--551, April 1955.
-		\bibitem{b2} J. Clerk Maxwell, A Treatise on Electricity and Magnetism, 3rd ed., vol. 2. Oxford: Clarendon, 1892, pp.68--73.
-	\end{thebibliography}
+		The source code for my final project can be found in the GitHub repository for this project: \url{https://github.com/Veloraxzia-Tenebris/Satellite-Visualizer.git}. The playable release can be found here: \url{https://github.com/Veloraxzia-Tenebris/Satellite-Visualizer/releases/tag/v1.0.0}
 \end{document}
